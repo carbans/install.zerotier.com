@@ -3,6 +3,7 @@
 -----BEGIN PGP SIGNED MESSAGE-----
 Hash: SHA256
 
+# shellcheck disable=SC2148
 ENDOFSIGSTART=
 
 export PATH=/bin:/usr/bin:/usr/local/bin:/sbin:/usr/sbin:/usr/local/sbin
@@ -62,11 +63,13 @@ UBUNTU_CODENAME_MAP["noble"]="noble"
 
 # Mint
 
-MAX_SUPPORTED_MINT_VERSION=21.3
-MAX_SUPPORTED_MINT_VERSION_NAME=virginia
+MAX_SUPPORTED_MINT_VERSION=22
+MAX_SUPPORTED_MINT_VERSION_NAME=xia
 
 # Map Mint codenames to Ubuntu codenames (and sometimes Debian)
 declare -A MINT_CODENAME_MAP
+MINT_CODENAME_MAP["xia"]="noble"
+MINT_CODENAME_MAP["wilma"]="noble"
 MINT_CODENAME_MAP["virginia"]="jammy"
 MINT_CODENAME_MAP["victoria"]="jammy"
 MINT_CODENAME_MAP["vera"]="jammy"
@@ -220,6 +223,7 @@ _new_apt_signing() {
 	echo "deb [signed-by=/usr/share/keyrings/zerotier-debian-package-key.gpg] ${URL}debian/$CODENAME $CODENAME main" >/tmp/zt-sources-list
 }
 
+	# shellcheck disable=SC2072
 write_apt_repo() {
 	DISTRIBUTION=$1
 	VERSION=$2
@@ -234,7 +238,7 @@ write_apt_repo() {
 	$SUDO apt-get install -y gpg
 	$SUDO chmod a+r /tmp/zt-gpg-key
 
-	if   [[ "$DISTRIBUTION" == "ubuntu" && "$VERSION" < "22.04" ]]; then
+	if [[ "$DISTRIBUTION" == "ubuntu" && "$VERSION" < "22.04" ]]; then
 		_old_apt_signing $URL $CODENAME
 	elif [[ ("$DISTRIBUTION" == "debian" || "$DISTRIBUTION" == "raspbian") && "$VERSION" -lt "10" ]]; then
 		_old_apt_signing $URL $CODENAME
@@ -246,9 +250,9 @@ write_apt_repo() {
 		_new_apt_signing $URL $CODENAME
 	elif [[ "$DISTRIBUTION" == "linuxmint" && "$VERSION" == "6" ]]; then
 		_new_apt_signing $URL $CODENAME
-	elif [[ "$DISTRIBUTION" == "linuxmint" && ( "$VERSION" == "21" || "$VERSION" > "21" ) ]]; then
+	elif [[ "$DISTRIBUTION" == "linuxmint" && ( "$VERSION" == "21" || "$VERSION" -gt "21" ) ]]; then
 		_new_apt_signing $URL $CODENAME
-	elif [[ "$DISTRIBUTION" == "linuxmint" && ( "$VERSION" == "20" || ("$VERSION" > "20" && "$VERSION" < "21" ) ) ]]; then
+	elif [[ "$DISTRIBUTION" == "linuxmint" && ( "$VERSION" == "20" || ("$VERSION" -gt "20" && "$VERSION" -lt "21" ) ) ]]; then
 		_old_apt_signing $URL $CODENAME
 	else
 		echo "Unsupported distribution $DISTRIBUTION $VERSION"
@@ -299,9 +303,12 @@ elif [ $ID == "ubuntu" ] || [ $ID == "pop" ]; then
 	fi
 elif [ $ID == "linuxmint" ]; then
 	echo '*** Detected Linux Mint, creating /etc/apt/sources.list.d/zerotier.list'
+ 	
+  	# fix for non integer version number
+  	VERSION_ID=$(echo $VERSION_ID | cut -d . -f 1)
 
-	if [[ "$VERSION_ID" > "$MAX_SUPPORTED_MINT_VERSION" ]]; then
-		write_apt_repo $ID $MAX_SUPPORED_MINT_VERSION $ZT_BASE_URL_HTTP $MAX_SUPPORTED_MINT_VERSION_NAME
+	if [[ "$VERSION_ID" -gt "$MAX_SUPPORTED_MINT_VERSION" ]]; then
+		write_apt_repo $ID $MAX_SUPPORTED_MINT_VERSION $ZT_BASE_URL_HTTP $MAX_SUPPORTED_MINT_VERSION_NAME
 	else 
 		write_apt_repo $ID $VERSION_ID $ZT_BASE_URL_HTTP ${MINT_CODENAME_MAP[${VERSION_CODENAME}]}
 	fi
@@ -391,14 +398,22 @@ echo
 echo '*** Enabling and starting ZeroTier service...'
 
 if [ -e /usr/bin/systemctl -o -e /usr/sbin/systemctl -o -e /sbin/systemctl -o -e /bin/systemctl ]; then
-	$SUDO systemctl enable zerotier-one
-	$SUDO systemctl start zerotier-one
-	if [ "$?" != "0" ]; then
+	if [[ -d /run/systemd/system ]]; then
+		$SUDO systemctl enable zerotier-one
+		$SUDO systemctl start zerotier-one
+		if [ "$?" != "0" ]; then
+			echo
+			echo '*** Package installed but cannot start service! You may be in a Docker'
+			echo '*** container or using a non-standard init service.'
+			echo
+			exit 1
+		fi
+	else
 		echo
-		echo '*** Package installed but cannot start service! You may be in a Docker'
-		echo '*** container or using a non-standard init service.'
+		echo '*** Package installed but cannot start service! You may be in a Docker container'
+		echo '*** or using a non-standard init service.'
 		echo
-		exit 1
+		exit 0
 	fi
 else
 	if [ -e /sbin/update-rc.d -o -e /usr/sbin/update-rc.d -o -e /bin/update-rc.d -o -e /usr/bin/update-rc.d ]; then
@@ -423,18 +438,18 @@ echo
 exit 0
 -----BEGIN PGP SIGNATURE-----
 
-iQJJBAEBCAAzFiEEdKXpxFjhpDHx2lenFlcZiCPlKmEFAmZZ8xIVHGNvbnRhY3RA
-emVyb3RpZXIuY29tAAoJEBZXGYgj5SphsdMP/ig91AIAjDPDiQJDlDA0D2S3sDVG
-NzwGgqJY+kzmtb24FZJbpcP7XgZLp016OPlYyATvagWyfZ37fOwo6d8PJ0G7Onyd
-gBnatTvsvqAhKc3OX+4opYEqYc5NtjHfgEuVZfsXQFM5m9AfGoJo/T6JXDYkeaMm
-+P8TXdRO4bVotUyOJI6GIzkIIH7Ul7YtwVa4D20MYH0rC32kGORNJwg2OmJrclZP
-Yt5qA4qsBrIepPz3axrst8m7mEzWmpT6OTHJuSmJ1NWirMWjGqF8yozftMoCTddo
-pQKVkl7/2oHNiorntyulkYT4VYzjOuWBPn/iPwCBi0r7ZEDCteeY937kMZEshgCM
-ZZd7w+dfrcdJhSZFigkFOEWf32Jc0NfiyY9GzgWBGVIAZcOCX+tsO+0JUWRp6IHP
-r96AIIATOTkxUHbjS4YEpceSKfyt8Xr+ASHfdbqf8cvXEU7tjbsg/LtPCICg4JN7
-t3kXKf+hXIXJF8LbRgRN3xMjrrH1yPJwUqd11HR+qjBL/HoFeyRJLht8AegTh33r
-TPhkcbUInDkvJauNDd7fAi5QKHVzLeWlFMaOyRS1svoe5CrwynJNzCb33RRnDdSs
-ZBar7tuKZJUCmucKeBlKbzCxfCHZM98nCXfNxgebqgh7WKW6YKvZ8SyzH3jwzlYm
-yFfswoyCCP/zzRsV
-=X16V
+iQJJBAEBCAAzFiEEdKXpxFjhpDHx2lenFlcZiCPlKmEFAme2UsoVHGNvbnRhY3RA
+emVyb3RpZXIuY29tAAoJEBZXGYgj5SphEVEQAKaIu1wFPR3PbRGRiNP8ylfAD4ns
+X3dyTzZjU6NcwU/iUQJzuePOGC41j7lF03drfOlrQ5PN5XsYkOSWZx2I04qHVxug
++ghb9upvQ1Eemak3Une46Py+VB9Ke8lzKt2DYGGFWJHYl3Fak3WdTgH6y9N1oYv5
+qCsPzth2wbF3WGe764/rfo/bn8UEQI/Mi3LUGOqJuD3C8u7V6XQ67B4zvNKBdIXI
+3lJ6PFOmRr0XT4v8VsXbl3nst7Ml6/sJCNmIHiHzJAAxIevin3JThosl8llXgr6L
+uAaW2n9RUvhSNX6+pnnoa7uhUVmitzZDKZWkY7lINP7mxn1b8QIDOVfgEXDU31Hh
+r2LviuwScAmSi7RWHAO2S1NvVD1yVoONbpz24Ke+kl1TKVNYxE9DkLdg2I3fy4pK
+HvOa5sX+safJhDoyTcQxLZO1qLO34V6R5Co1BQ6j58kT+iDElt7IfQwvBUdjc9an
+HQAvbRY7IK8j1gLUVS9B7Z/kWczM2u1aBAoZhcuXqfk7Av1JJfU9qz/RrcLowueC
+lHkhErxVY6iVA4akbIxope4X6VnROuaJto9ExigSV3dTyvhYIWPA0yuh1muOlef1
+reEZ7bSqYmrxB4sRUivdSEGlFdmNwm41PAuWdlIFQDQ5XG4wDziUG3qDrQ1tkXJc
+NAfdFEsfkRPMmMtk
+=pery
 -----END PGP SIGNATURE-----
